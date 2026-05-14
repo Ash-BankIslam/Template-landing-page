@@ -1,43 +1,36 @@
-import json, bcrypt
+import bcrypt
+from supabase import create_client
+import streamlit as st
 
-USER_FILE = "users.json"
+# --- Supabase connection ---
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase = create_client(url, key)
 
-def load_users():
-    try:
-        with open(USER_FILE, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-
-def save_users(users):
-    with open(USER_FILE, "w") as f:
-        json.dump(users, f)
-
-def register_user(username, password, role):
-    users = load_users()
-    if username in users:
-        return False, "User already exists"
+# --- User management functions ---
+def register_user(username: str, password: str, role: str):
+    """Register a new user with hashed password and role."""
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-    users[username] = {"password": hashed, "role": role}
-    save_users(users)
-    return True, f"User {username} registered as {role}"
+    supabase.table("users").insert({
+        "username": username,
+        "password": hashed,
+        "role": role
+    }).execute()
 
-def verify_user(username, password):
-    users = load_users()
-    if username in users:
-        stored_hash = users[username]["password"].encode()
+def verify_user(username: str, password: str):
+    """Verify login credentials. Returns (True, role) if valid, else (False, None)."""
+    result = supabase.table("users").select("*").eq("username", username).execute()
+    if result.data:
+        stored_hash = result.data[0]["password"].encode()
         if bcrypt.checkpw(password.encode(), stored_hash):
-            return True, users[username]["role"]
+            return True, result.data[0]["role"]
     return False, None
 
-def change_password(username, old_pass, new_pass):
-    users = load_users()
-    if username not in users:
-        return False, "User not found"
-    stored_hash = users[username]["password"].encode()
-    if bcrypt.checkpw(old_pass.encode(), stored_hash):
-        new_hash = bcrypt.hashpw(new_pass.encode(), bcrypt.gensalt()).decode()
-        users[username]["password"] = new_hash
-        save_users(users)
-        return True, "Password updated"
-    return False, "Old password incorrect"
+def reset_password(username: str, new_pass: str):
+    """Reset a user's password by updating the hash in Supabase."""
+    new_hash = bcrypt.hashpw(new_pass.encode(), bcrypt.gensalt()).decode()
+    supabase.table("users").update({"password": new_hash}).eq("username", username).execute()
+
+def get_all_users():
+    """Optional: Fetch all users (for admin dashboard)."""
+    return supabase.table("users").select("id, username, role, created_at").execute().data
