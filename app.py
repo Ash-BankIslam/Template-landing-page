@@ -1,4 +1,6 @@
 import streamlit as st
+from user_manager import verify_user, register_user, reset_password
+import dashboard
 import bcrypt
 from supabase import create_client
 
@@ -79,11 +81,7 @@ def forgot_page():
         st.session_state.page = "login"
 
 def dashboard_page():
-    st.title("Dashboard")
-    st.write(f"Welcome {st.session_state.username} ({st.session_state.role})")
-    if st.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.page = "login"
+    dashboard.show_dashboard(st.session_state.role, st.session_state.username)
 
 # --- Routing ---
 if not st.session_state.logged_in:
@@ -93,5 +91,7 @@ if not st.session_state.logged_in:
         signup_page()
     elif st.session_state.page == "forgot":
         forgot_page()
+else:
+    dashboard_page()
 else:
     dashboard_page()
