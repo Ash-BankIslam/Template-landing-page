@@ -1,13 +1,6 @@
 import streamlit as st
-from user_manager import verify_user, register_user, reset_password
+from user_manager import register_user, verify_user, reset_password
 import dashboard
-import bcrypt
-from supabase import create_client
-
-# --- Supabase connection ---
-url = st.secrets["SUPABASE_URL"]
-key = st.secrets["SUPABASE_KEY"]
-supabase = create_client(url, key)
 
 # --- Session state setup ---
 if "page" not in st.session_state:
@@ -16,27 +9,6 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = None
     st.session_state.role = None
-
-# --- User management functions ---
-def register_user(username, password, role):
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-    supabase.table("users").insert({
-        "username": username,
-        "password": hashed,
-        "role": role
-    }).execute()
-
-def verify_user(username, password):
-    result = supabase.table("users").select("*").eq("username", username).execute()
-    if result.data:
-        stored_hash = result.data[0]["password"].encode()
-        if bcrypt.checkpw(password.encode(), stored_hash):
-            return True, result.data[0]["role"]
-    return False, None
-
-def reset_password(username, new_pass):
-    new_hash = bcrypt.hashpw(new_pass.encode(), bcrypt.gensalt()).decode()
-    supabase.table("users").update({"password": new_hash}).eq("username", username).execute()
 
 # --- Page functions ---
 def login_page():
@@ -49,13 +21,16 @@ def login_page():
             st.session_state.logged_in = True
             st.session_state.username = username
             st.session_state.role = role
-            st.success(f"Logged in as {username} ({role})")
+            st.session_state.page = "dashboard"   # <-- route to dashboard
+            st.experimental_rerun()
         else:
             st.error("Invalid credentials")
     if st.button("Sign Up"):
         st.session_state.page = "signup"
+        st.experimental_rerun()
     if st.button("Forgot Password"):
         st.session_state.page = "forgot"
+        st.experimental_rerun()
 
 def signup_page():
     st.title("Sign Up")
@@ -66,8 +41,10 @@ def signup_page():
         register_user(new_user, new_pass, role)
         st.success(f"User {new_user} registered as {role}")
         st.session_state.page = "login"
+        st.experimental_rerun()
     if st.button("Back to Login"):
         st.session_state.page = "login"
+        st.experimental_rerun()
 
 def forgot_page():
     st.title("Forgot Password")
@@ -77,8 +54,10 @@ def forgot_page():
         reset_password(user, new_pass)
         st.success("Password reset successfully")
         st.session_state.page = "login"
+        st.experimental_rerun()
     if st.button("Back to Login"):
         st.session_state.page = "login"
+        st.experimental_rerun()
 
 def dashboard_page():
     dashboard.show_dashboard(st.session_state.role, st.session_state.username)
