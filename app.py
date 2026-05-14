@@ -93,5 +93,3 @@ if not st.session_state.logged_in:
         forgot_page()
 else:
     dashboard_page()
-else:
-    dashboard_page()
